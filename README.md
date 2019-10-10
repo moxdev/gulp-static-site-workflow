@@ -1,5 +1,6 @@
 # Gulp Static Site Workflow
-![Version 1.0.0](https://img.shields.io/badge/Version-2.0.2-brightgreen.svg)
+![Version 1.0.0](https://img.shields.io/badge/Version-1.0.0-brightgreen)
+![Gulp 4.0.2](https://img.shields.io/badge/gulp-4.0.2-red)
 
 Gulp workflow for simple static site/landing page development.
 
