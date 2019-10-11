@@ -1,74 +1,71 @@
-"use strict";
-// Initialize modules
-// Importing specific gulp API functions lets us write them below as series() instead of gulp.series()
-const { src, dest, watch, series, parallel } = require('gulp');
+'use strict';
+
+import { src, dest, watch, series, parallel } from 'gulp';
 // Importing all the Gulp-related packages we want to use
-const autoprefixer        = require('autoprefixer');
-const babel               = require('gulp-babel');
-const browserSync         = require('browser-sync').create();
-const browserSyncReuseTab = require('browser-sync-reuse-tab')(browserSync)
-const concat              = require('gulp-concat');
-const cssnano             = require('cssnano');
-const del                 = require('del');
-const Fiber               = require('fibers');
-const newer               = require('gulp-newer');
-const plumber             = require('gulp-plumber');
-const postcss             = require('gulp-postcss');
-const rename              = require('gulp-rename');
-const sass                = require('gulp-sass');
-const sourcemaps          = require('gulp-sourcemaps');
-const uglify              = require('gulp-uglify');
-const notify              = require('gulp-notify');
-var replace               = require('gulp-replace');
+import autoprefixer from 'autoprefixer';
+import babel from 'rollup-plugin-babel';
+import browserSyncReuseTab from 'browser-sync-reuse-tab';
+import {create as bsCreate} from 'browser-sync';
+import cssnano from 'cssnano';
+import commonjs from 'rollup-plugin-commonjs';
+import del from 'del';
+import { eslint } from 'rollup-plugin-eslint';
+import Fiber from 'fibers';
+import notify from 'gulp-notify';
+import plumber from 'gulp-plumber';
+import postcss from 'gulp-postcss';
+import rename from 'gulp-rename';
+import resolve from 'rollup-plugin-node-resolve';
+import rollup from 'gulp-better-rollup';
+import sass from 'gulp-dart-sass';
+import sourcemaps from 'gulp-sourcemaps';
+import uglify from 'rollup-plugin-uglify';
 
-/**
- * # Set sass.compiler for future compatibilty
- * * can also use "node-sass"
- * @ https://www.npmjs.com/package/gulp-sass
- */
+const browserSync = bsCreate();
+const bsReuseTab = browserSyncReuseTab(browserSync);
 
-sass.compiler = require('dart-sass');
+const dirs = {
+  src: 'src',
+  dest: 'dist'
+};
 
-// File paths
-const files = {
-  htmlPath: './src/index.html',
-  scssPath: './src/scss/**/*.scss',
-  jsPath: './src/js/**/*.js',
-  jsDest: './dist/js/',
-}
+const htmlPaths = {
+  src: `${dirs.src}/*.html`,
+  dest: dirs.dest,
+};
 
-// Works!
-// BrowserSync
-function browserSyncServer(done) {
+const sassPaths = {
+  src: `${dirs.src}/scss/**/*.scss`,
+  dest: `${dirs.dest}/css/`
+};
+
+const jsPaths = {
+  src: `${dirs.src}/js/**/*.js`,
+  dest: `${dirs.dest}/js/`
+};
+
+export function server(done) {
   browserSync.init({
     server: {
-      baseDir: "./dist/"
+      baseDir: './dist/'
     },
     port: 3000,
     injectChanges: true,
     open: false // do not automatically open browser
-  }, browserSyncReuseTab );
+  }, bsReuseTab);
   done();
 }
 
-// Works!
-// Delete Dist folder for fresh build
-function clean() {
-  return del(["./dist/"]);
+export function html() {
+  return src(htmlPaths.src, { allowEmpty: true })
+    .pipe(dest(htmlPaths.dest))
+    .pipe(browserSync.stream())
+    .pipe(notify({ message: 'TASK: HTML setup complete', onLast: true }));
 }
 
-// Works!
-function htmlTask(){
-  return src(files.htmlPath, { allowEmpty: true })
-  .pipe(dest('dist'))
-  .pipe(browserSync.stream())
-  .pipe(notify({ message: 'TASK: HTML setup complete', onLast: true }));
-}
-
-// Works!
 // Sass task: compiles the style.scss file into style.css
-function scssTask(){
-  return src(files.scssPath, { allowEmpty: true })
+function css(){
+  return src(sassPaths.src, { allowEmpty: true })
     .pipe(plumber()) // initialize plumber first
     .pipe(sourcemaps.init()) // initialize sourcemaps
     .pipe(sass({
@@ -76,90 +73,61 @@ function scssTask(){
       outputStyle: 'expanded',
     }).on('error', sass.logError))  // using dart-sass w/ fiber
     .pipe(dest('./src/css/')) // put expanded CSS in src/css folder for debugging
-    .pipe(rename({ suffix: ".min" }))  // rename file with .min
+    .pipe(rename({ suffix: '.min' }))  // rename file with .min
     .pipe(postcss([autoprefixer(), cssnano()]))  // run postcss options
     .pipe(sourcemaps.write('.')) // write sourcemaps file in current directory
     .pipe(plumber.stop())
-    .pipe(dest('./dist/css/')) // put final minified CSS in dist/css folder
+    .pipe(dest(sassPaths.dest)) // put final minified CSS in dist/css folder
     .pipe(browserSync.stream())
     .pipe(notify({ message: 'Task: CSS compiled successfully', onLast: true })
-  );
+    );
 }
 
-// JS task: concatenates and uglifies JS files to script.js
-// function jsTask(){
-//   return src(files.jsPath, { allowEmpty: true })
-//     .pipe(concat('all.js'))
-//     .pipe(uglify())
-//     .pipe(dest('dist')
-//   );
-// }
-
-function scripts() {
-  return src(files.jsPath, { sourcemaps: true })
-    .pipe(babel())
-    .pipe(uglify())
-    .pipe(concat('main.min.js'))
-    .pipe(dest(files.jsDest));
+export function scripts() {
+  return src(jsPaths.src, { allowEmpty: true })
+    .pipe(plumber())
+    .pipe(sourcemaps.init())
+    .pipe(rollup({
+      plugins: [
+        resolve(),
+        commonjs(),
+        eslint(),
+        babel({
+          exclude: 'node_modules/**',
+          runtimeHelpers: true
+        }),
+        uglify.uglify()
+      ]
+    },{
+      format: 'iife'
+    }))
+    .pipe(rename({
+      suffix: '.min'
+    })
+    )
+    .pipe(sourcemaps.write('.'))
+    .pipe(plumber.stop())
+    .pipe(dest(jsPaths.dest))
+    .pipe(notify({ message: 'TASK: "js" completed', onLast: true }));
 }
 
-// // JS task: concatenates and uglifies JS files to script.js
-// function jsTask(){
-//   return src([
-//     files.jsPath,
-//     //,'!' + 'includes/js/jquery.min.js', // to exclude any specific files
-//     ], { allowEmpty: true })
-//     .pipe(concat('all.js'))
-//     .pipe(uglify())
-//     .pipe(dest('dist')
-//   );
-// }
-
-// Cachebust
-// var cbString = new Date().getTime();
-// function cacheBustTask(){
-//   return src(['index.html'])
-//     .pipe(replace(/cb=\d+/g, 'cb=' + cbString))
-//     .pipe(dest('.'));
-// }
-
-// Watch task: watch SCSS and JS files for changes
-// If any change, run scss and js tasks simultaneously
-function watchTask(){
-  watch(
-    [files.scssPath, files.jsPath, files.htmlPath],
-    parallel(scssTask, scripts, jsTask, htmlTask)
-  );
+// Delete Dist folder for fresh build
+export function clean() {
+  return del([dirs.dest]);
 }
 
-// Watch files
+/*
+  * You could even use `export as` to rename exported tasks
+  */
 function watchFiles() {
-  watch(files.scssPath, scssTask);
-  watch("./src/**/*.html", htmlTask);
+  watch(htmlPaths.src, html);
+  watch(sassPaths.src, css);
+  watch(jsPaths.src, scripts);
 }
+export { watchFiles as watch };
 
-// BrowserSync Reload
-function browserSyncReload(done) {
-  browserSync.reload();
-  done();
-}
-
-// Export the default Gulp task so it can be run
-// Runs the scss and js tasks simultaneously
-// then runs cacheBust, then watch task
-exports.default = series(
-  parallel(scssTask, scripts, htmlTask, browserSyncServer),
-  watchFiles
-);
-
-exports.html = htmlTask;
-exports.js = scripts;
-exports.css = scssTask;
-exports.clean = clean;
-
-
-
-
-// Look into this
-// - Replace Autoprefixer browsers option to Browserslist config.
-//   Use browserslist key in package.json or .browserslistrc file.
+const build = series(parallel(scripts, html, server));
+/*
+ * Export a default task
+ */
+export default build;
