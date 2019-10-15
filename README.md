@@ -10,3 +10,6 @@ Gulp workflow for simple static site/landing page development.
 2. Browser refreshing using BrowserSync
 3. Sass compilation, mapping, auto-prefixing, minifying, sourcemaps
 4. Javascript module bundling with Rollup, transpiling with Babel, linting with ES Lint, minifying, sourcemaps
+
+### Gulp Tasks
+`gulp build --env production` - Minimize css anf javacsript files for production

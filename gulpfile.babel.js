@@ -12,6 +12,7 @@ import del from 'del';
 import { eslint } from 'rollup-plugin-eslint';
 import Fiber from 'fibers';
 import gulpif from 'gulp-if';
+import minimist from 'minimist';
 import notify from 'gulp-notify';
 import plumber from 'gulp-plumber';
 import postcss from 'gulp-postcss';
@@ -25,6 +26,21 @@ import uglify from 'rollup-plugin-uglify';
 const browserSync = bsCreate();
 const bsReuseTab = browserSyncReuseTab(browserSync);
 
+/**
+ * Options for development / production conditionals
+ * * default is development env
+ * * official Gulp recipe for environments
+ * @ https://github.com/gulpjs/gulp/blob/6b92e9225d20584a4ea3b7fea6b2d9d3fe159e5e/docs/recipes/pass-arguments-from-cli.md
+ */
+const knownOptions = {
+  string: 'env',
+  default: { env: process.env.NODE_ENV || 'development' },
+  production: { env: process.env.NODE_ENV || 'production' }
+};
+
+const options = minimist(process.argv.slice(2), knownOptions);
+
+// File Paths
 const dirs = {
   src: 'src',
   dest: 'dist'
@@ -60,6 +76,7 @@ const imagesPaths = {
   dest: `${dirs.dest}/imgs/`
 };
 
+// Initiate BrowserSync server
 export function server(done) {
   browserSync.init({
     server: {
@@ -72,11 +89,13 @@ export function server(done) {
   done();
 }
 
+// BrowserSync reload function
 export function reload(done) {
   browserSync.reload();
   done();
 }
 
+//
 export function html() {
   return src(htmlPaths.src, { allowEmpty: true })
     .pipe(dest(htmlPaths.dest))
@@ -90,12 +109,10 @@ export function css(){
     .pipe(plumber()) // initialize plumber first
     .pipe(sourcemaps.init()) // initialize sourcemaps
     .pipe(sass({
-      fiber: Fiber,
-      outputStyle: 'expanded',
+      fiber: Fiber
     }).on('error', sass.logError))  // using dart-sass w/ fiber
-    .pipe(dest('./src/css/')) // put expanded CSS in src/css folder for debugging
-    .pipe(rename({ suffix: '.min' }))  // rename file with .min
-    .pipe(postcss([autoprefixer(), cssnano()]))  // run postcss options
+    .pipe(postcss([autoprefixer()])) // run postcss options
+    .pipe(gulpif(options.env === 'production', postcss([cssnano()])))  // minify css if production
     .pipe(sourcemaps.write('.')) // write sourcemaps file in current directory
     .pipe(plumber.stop())
     .pipe(dest(sassPaths.dest)) // put final minified CSS in dist/css folder
@@ -117,15 +134,12 @@ export function scripts() {
           exclude: 'node_modules/**',
           runtimeHelpers: true
         }),
-        uglify.uglify()
+        gulpif(options.env === 'production', uglify.uglify())
       ]
     },{
       format: 'iife'
     }))
-    .pipe(rename({
-      suffix: '.min'
-    })
-    )
+    .pipe(rename({ suffix: '.min' }))
     .pipe(sourcemaps.write('.'))
     .pipe(plumber.stop())
     .pipe(dest(jsPaths.dest))
