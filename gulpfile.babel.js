@@ -11,6 +11,7 @@ import commonjs from 'rollup-plugin-commonjs';
 import del from 'del';
 import { eslint } from 'rollup-plugin-eslint';
 import Fiber from 'fibers';
+import gulpif from 'gulp-if';
 import notify from 'gulp-notify';
 import plumber from 'gulp-plumber';
 import postcss from 'gulp-postcss';
@@ -30,7 +31,7 @@ const dirs = {
 };
 
 const htmlPaths = {
-  src: `${dirs.src}/*.html`,
+  src: `${dirs.src}/**/*.html`,
   dest: dirs.dest,
 };
 
@@ -42,6 +43,21 @@ const sassPaths = {
 const jsPaths = {
   src: `${dirs.src}/js/**/*.js`,
   dest: `${dirs.dest}/js/`
+};
+
+const phpPaths = {
+  src: `${dirs.src}/**/*.php`,
+  dest: dirs.dest
+};
+
+const fontsPaths = {
+  src: `${dirs.src}/fonts/*`,
+  dest: `${dirs.dest}/fonts/`
+};
+
+const imagesPaths = {
+  src: `${dirs.src}/imgs/*`,
+  dest: `${dirs.dest}/imgs/`
 };
 
 export function server(done) {
@@ -56,6 +72,11 @@ export function server(done) {
   done();
 }
 
+export function reload(done) {
+  browserSync.reload();
+  done();
+}
+
 export function html() {
   return src(htmlPaths.src, { allowEmpty: true })
     .pipe(dest(htmlPaths.dest))
@@ -64,7 +85,7 @@ export function html() {
 }
 
 // Sass task: compiles the style.scss file into style.css
-function css(){
+export function css(){
   return src(sassPaths.src, { allowEmpty: true })
     .pipe(plumber()) // initialize plumber first
     .pipe(sourcemaps.init()) // initialize sourcemaps
@@ -108,7 +129,31 @@ export function scripts() {
     .pipe(sourcemaps.write('.'))
     .pipe(plumber.stop())
     .pipe(dest(jsPaths.dest))
+    .pipe(browserSync.stream())
     .pipe(notify({ message: 'TASK: "js" completed', onLast: true }));
+}
+
+export function php() {
+  return src(phpPaths.src, { allowEmpty: true })
+    .pipe(dest(phpPaths.dest))
+    .pipe(browserSync.stream())
+    .pipe(notify({ message: 'TASK: PHP setup complete', onLast: true }));
+}
+
+export function fonts() {
+  return src(fontsPaths.src, { allowEmpty: true })
+    .pipe(dest(fontsPaths.dest))
+    .pipe(browserSync.stream())
+    .pipe(notify({ message: 'TASK: "fonts" completed', onLast: true })
+  );
+}
+
+export function images() {
+  return src(imagesPaths.src, { allowEmpty: true })
+    .pipe(dest(imagesPaths.dest))
+    .pipe(browserSync.stream())
+    .pipe(notify({ message: 'TASK: "images" completed', onLast: true })
+  );
 }
 
 // Delete Dist folder for fresh build
@@ -116,18 +161,38 @@ export function clean() {
   return del([dirs.dest]);
 }
 
-/*
-  * You could even use `export as` to rename exported tasks
-  */
-function watchFiles() {
-  watch(htmlPaths.src, html);
-  watch(sassPaths.src, css);
-  watch(jsPaths.src, scripts);
+export function watchFiles() {
+  watch(htmlPaths.src, series(html, reload));
+  watch(sassPaths.src, series(css, reload));
+  watch(phpPaths.src, series(php, reload));
+  watch(fontsPaths.src, series(fonts, reload));
+  watch(imagesPaths.src, series(images, reload));
 }
-export { watchFiles as watch };
 
-const build = series(parallel(scripts, html, server));
-/*
- * Export a default task
- */
-export default build;
+const build = series(
+  clean,
+  parallel(
+    scripts,
+    css,
+    html,
+    php,
+    fonts,
+    images
+  )
+);
+
+exports.build = build;
+
+exports.default = series(
+  clean,
+  parallel(
+    scripts,
+    css,
+    html,
+    php,
+    fonts,
+    images
+  ),
+  server,
+  watchFiles
+);
