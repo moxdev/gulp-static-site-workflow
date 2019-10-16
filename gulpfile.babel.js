@@ -10,7 +10,6 @@ import cssnano from 'cssnano';
 import commonjs from 'rollup-plugin-commonjs';
 import del from 'del';
 import { eslint } from 'rollup-plugin-eslint';
-import Fiber from 'fibers';
 import gulpif from 'gulp-if';
 import minimist from 'minimist';
 import notify from 'gulp-notify';
@@ -19,7 +18,7 @@ import postcss from 'gulp-postcss';
 import rename from 'gulp-rename';
 import resolve from 'rollup-plugin-node-resolve';
 import rollup from 'gulp-better-rollup';
-import sass from 'gulp-dart-sass';
+import sass from 'gulp-sass';
 import sourcemaps from 'gulp-sourcemaps';
 import uglify from 'rollup-plugin-uglify';
 
@@ -114,7 +113,7 @@ export function css(){
   return src(sassPaths.src, { allowEmpty: true })
     .pipe(plumber()) // initialize plumber first
     .pipe(sourcemaps.init()) // initialize sourcemaps
-    .pipe(sass({ fiber: Fiber }).on('error', sass.logError))  // using dart-sass w/ fiber
+    .pipe(sass().on('error', sass.logError))  // convert sass
     .pipe(postcss([autoprefixer()])) // run postcss autoprefixer
     .pipe(gulpif(options.env === 'production', postcss([cssnano()])))  // minify css if production environment
     .pipe(sourcemaps.write('.')) // write sourcemaps file in current directory
