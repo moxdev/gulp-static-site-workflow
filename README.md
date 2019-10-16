@@ -12,4 +12,4 @@ Gulp workflow for simple static site/landing page development.
 4. Javascript module bundling with Rollup, transpiling with Babel, linting with ES Lint, minifying, sourcemaps
 
 ### Gulp Tasks
-`gulp build --env production` - Minimize css anf javacsript files for production
+`gulp build --env production` - Minimize CSS and JavaScript files for production

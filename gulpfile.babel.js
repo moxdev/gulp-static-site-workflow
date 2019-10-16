@@ -39,7 +39,9 @@ const knownOptions = {
 
 const options = minimist(process.argv.slice(2), knownOptions);
 
-// File Paths
+/**
+* ! Set file paths for source and destination.
+*/
 const dirs = {
   src: 'src',
   dest: 'dist'
@@ -75,7 +77,13 @@ const imagesPaths = {
   dest: `${dirs.dest}/imgs/`
 };
 
-// Initiate BrowserSync server
+/**
+* ! Server function:
+* * initiate BrowserSync server
+* * uses `browser-sync-reuse-tab` to always open in same browser tab
+* @ https://www.npmjs.com/package/browser-sync-reuse-tab
+* * run with `gulp server`
+*/
 export function server(done) {
   browserSync.init({
     server: {
@@ -88,19 +96,29 @@ export function server(done) {
   done();
 }
 
-// BrowserSync reload function
+/**
+* ! Reload function:
+* * reloads BrowserSync server
+* * used in watchFiles function
+* * run with `gulp reload`
+*/
 export function reload(done) {
   browserSync.reload();
   done();
 }
 
-// HTML function: copies html files to  dist/
+/**
+* ! HTML function:
+* * copies html files from src/ to dist/
+* * run with `gulp html`
+*/
 export function html() {
   return src(htmlPaths.src, { allowEmpty: true })
     .pipe(dest(htmlPaths.dest))
     .pipe(browserSync.stream())
     .pipe(notify({ message: 'Task: HTML complete!', onLast: true }));
 }
+
 /**
 * ! CSS function:
 * @ uses 'gulp-better-rollup' https://www.npmjs.com/package/gulp-better-rollup
@@ -123,6 +141,7 @@ export function css(){
     .pipe(notify({ message: 'TASK: CSS complete!', onLast: true })
     );
 }
+
 /**
  * ! Scripts function:
  * @ uses 'gulp-better-rollup' https://www.npmjs.com/package/gulp-better-rollup
@@ -155,6 +174,7 @@ export function scripts() {
     .pipe(browserSync.stream())
     .pipe(notify({ message: 'TASK: "scripts" completed!', onLast: true }));
 }
+
 /**
  * ! PHP function:
  * * copies all php files to dist/
@@ -166,6 +186,7 @@ export function php() {
     .pipe(browserSync.stream())
     .pipe(notify({ message: 'TASK: "php" completed!', onLast: true }));
 }
+
 /**
 * ! Fonts function:
 * * copies font files to dist/fonts/
@@ -178,6 +199,7 @@ export function fonts() {
     .pipe(notify({ message: 'TASK: "fonts" completed', onLast: true })
     );
 }
+
 /**
 * ! Images function:
 * * copies image files to dist/img/
@@ -190,6 +212,7 @@ export function images() {
     .pipe(notify({ message: 'TASK: "images" completed', onLast: true })
     );
 }
+
 /**
 * ! Clean function:
 * * deletes dist/ folder for a clean build
@@ -198,6 +221,7 @@ export function images() {
 export function clean() {
   return del([dirs.dest]);
 }
+
 /**
 * ! WatchFiles function:
 * * watches for changes
@@ -212,23 +236,15 @@ export function watchFiles() {
   watch(fontsPaths.src, series(fonts, reload));
   watch(imagesPaths.src, series(images, reload));
 }
+
 /**
 * ! Build:
 * * deletes the dist/ files
 * * runs other fucntions to rebuild dist/
 * * run with `gulp build`
 */
-export const build = series(
-  clean,
-  parallel(
-    scripts,
-    css,
-    html,
-    php,
-    fonts,
-    images
-  )
-);
+export const build = series(clean, parallel(scripts, css, html, php, fonts, images));
+
 /**
 * ! Gulp default:
 * * deletes the dist/ files
@@ -237,16 +253,4 @@ export const build = series(
 * * watches files for changes and reloads browser if changes
 * * run with `gulp`
 */
-exports.default = series(
-  clean,
-  parallel(
-    scripts,
-    css,
-    html,
-    php,
-    fonts,
-    images
-  ),
-  server,
-  watchFiles
-);
+exports.default = series(build, server, watchFiles);
