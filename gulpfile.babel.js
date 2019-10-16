@@ -27,7 +27,7 @@ const browserSync = bsCreate();
 const bsReuseTab = browserSyncReuseTab(browserSync);
 
 /**
- * Options for development / production conditionals
+ * ! Options for development / production conditionals
  * * default is development env
  * * official Gulp recipe for environments
  * @ https://github.com/gulpjs/gulp/blob/6b92e9225d20584a4ea3b7fea6b2d9d3fe159e5e/docs/recipes/pass-arguments-from-cli.md
@@ -84,7 +84,7 @@ export function server(done) {
     },
     port: 3000,
     injectChanges: true,
-    open: false // do not automatically open browser
+    open: false // do not automatically open browser, will open in same tab if already opened
   }, bsReuseTab);
   done();
 }
@@ -95,86 +95,117 @@ export function reload(done) {
   done();
 }
 
-//
+// HTML function: copies html files to  dist/
 export function html() {
   return src(htmlPaths.src, { allowEmpty: true })
     .pipe(dest(htmlPaths.dest))
     .pipe(browserSync.stream())
-    .pipe(notify({ message: 'TASK: HTML setup complete', onLast: true }));
+    .pipe(notify({ message: 'Task: HTML complete!', onLast: true }));
 }
-
-// Sass task: compiles the style.scss file into style.css
+/**
+* ! CSS function:
+* @ uses 'gulp-better-rollup' https://www.npmjs.com/package/gulp-better-rollup
+* * compiles the src/scss/styles.scss file into styles.css
+* * copies js files to dist/js/
+* * minifies js if in production environment
+* * run with `gulp scripts`
+*/
 export function css(){
   return src(sassPaths.src, { allowEmpty: true })
     .pipe(plumber()) // initialize plumber first
     .pipe(sourcemaps.init()) // initialize sourcemaps
-    .pipe(sass({
-      fiber: Fiber
-    }).on('error', sass.logError))  // using dart-sass w/ fiber
-    .pipe(postcss([autoprefixer()])) // run postcss options
-    .pipe(gulpif(options.env === 'production', postcss([cssnano()])))  // minify css if production
+    .pipe(sass({ fiber: Fiber }).on('error', sass.logError))  // using dart-sass w/ fiber
+    .pipe(postcss([autoprefixer()])) // run postcss autoprefixer
+    .pipe(gulpif(options.env === 'production', postcss([cssnano()])))  // minify css if production environment
     .pipe(sourcemaps.write('.')) // write sourcemaps file in current directory
     .pipe(plumber.stop())
-    .pipe(dest(sassPaths.dest)) // put final minified CSS in dist/css folder
+    .pipe(dest(sassPaths.dest)) // put CSS and sourcemaps in dist/css folder
     .pipe(browserSync.stream())
-    .pipe(notify({ message: 'Task: CSS compiled successfully', onLast: true })
+    .pipe(notify({ message: 'TASK: CSS complete!', onLast: true })
     );
 }
-
+/**
+ * ! Scripts function:
+ * @ uses 'gulp-better-rollup' https://www.npmjs.com/package/gulp-better-rollup
+ * * checks for js errors
+ * * copies js files to dist/js/
+ * * minifies js if in production environment
+ * * run with `gulp scripts`
+ */
 export function scripts() {
   return src(jsPaths.src, { allowEmpty: true })
-    .pipe(plumber())
-    .pipe(sourcemaps.init())
+    .pipe(plumber()) // initialize plumber first
+    .pipe(sourcemaps.init()) // initialize sourcemaps
     .pipe(rollup({
       plugins: [
         resolve(),
         commonjs(),
         eslint(),
         babel({
-          exclude: 'node_modules/**',
-          runtimeHelpers: true
+          exclude: 'node_modules/**'
         }),
-        gulpif(options.env === 'production', uglify.uglify())
+        gulpif(options.env === 'production', uglify.uglify())  // minify js if in production environment
       ]
     },{
       format: 'iife'
     }))
-    .pipe(rename({ suffix: '.min' }))
-    .pipe(sourcemaps.write('.'))
+    .pipe(rename({ suffix: '.min' }))  // rename file to use .min.js
+    .pipe(sourcemaps.write('.'))  // write sourcemaps file in current directory
     .pipe(plumber.stop())
-    .pipe(dest(jsPaths.dest))
+    .pipe(dest(jsPaths.dest))  // put js files and sourcemaps in dist/js folder
     .pipe(browserSync.stream())
-    .pipe(notify({ message: 'TASK: "js" completed', onLast: true }));
+    .pipe(notify({ message: 'TASK: "scripts" completed!', onLast: true }));
 }
-
+/**
+ * ! PHP function:
+ * * copies all php files to dist/
+ * * run with `gulp php`
+ */
 export function php() {
   return src(phpPaths.src, { allowEmpty: true })
     .pipe(dest(phpPaths.dest))
     .pipe(browserSync.stream())
-    .pipe(notify({ message: 'TASK: PHP setup complete', onLast: true }));
+    .pipe(notify({ message: 'TASK: "php" completed!', onLast: true }));
 }
-
+/**
+* ! Fonts function:
+* * copies font files to dist/fonts/
+* * run with `gulp fonts`
+*/
 export function fonts() {
   return src(fontsPaths.src, { allowEmpty: true })
     .pipe(dest(fontsPaths.dest))
     .pipe(browserSync.stream())
     .pipe(notify({ message: 'TASK: "fonts" completed', onLast: true })
-  );
+    );
 }
-
+/**
+* ! Images function:
+* * copies image files to dist/img/
+* * run with `gulp images`
+*/
 export function images() {
   return src(imagesPaths.src, { allowEmpty: true })
     .pipe(dest(imagesPaths.dest))
     .pipe(browserSync.stream())
     .pipe(notify({ message: 'TASK: "images" completed', onLast: true })
-  );
+    );
 }
-
-// Delete Dist folder for fresh build
+/**
+* ! Clean function:
+* * deletes dist/ folder for a clean build
+* * run with `gulp clean`
+*/
 export function clean() {
   return del([dirs.dest]);
 }
-
+/**
+* ! WatchFiles function:
+* * watches for changes
+* * runs coresponding functions if changes
+* * reloads BrowserSync
+* * run with `gulp watchFiles`
+*/
 export function watchFiles() {
   watch(htmlPaths.src, series(html, reload));
   watch(sassPaths.src, series(css, reload));
@@ -182,8 +213,13 @@ export function watchFiles() {
   watch(fontsPaths.src, series(fonts, reload));
   watch(imagesPaths.src, series(images, reload));
 }
-
-const build = series(
+/**
+* ! Build:
+* * deletes the dist/ files
+* * runs other fucntions to rebuild dist/
+* * run with `gulp build`
+*/
+export const build = series(
   clean,
   parallel(
     scripts,
@@ -194,9 +230,14 @@ const build = series(
     images
   )
 );
-
-exports.build = build;
-
+/**
+* ! Gulp default:
+* * deletes the dist/ files
+* * runs other fucntions to rebuild dist/
+* * starts BrowserSync server
+* * watches files for changes and reloads browser if changes
+* * run with `gulp`
+*/
 exports.default = series(
   clean,
   parallel(
